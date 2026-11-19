@@ -1,47 +1,44 @@
-name: Build APK
+
+name: Build Subcake APK
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Unpack project
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Extract project ZIP
         run: |
-          set -e
-          zipfile=$(find . -maxdepth 3 -name "*.zip" -not -path "./.git/*" | head -n1)
-          if [ -n "$zipfile" ]; then
-            echo "Unpacking $zipfile"
-            unzip -q -o "$zipfile" -d _src
-            root=$(dirname "$(find _src -name settings.gradle.kts | head -n1)")
-          else
-            root=$(dirname "$(find . -name settings.gradle.kts -not -path "./.git/*" | head -n1)")
-          fi
-          echo "PROJECT_DIR=$root" >> "$GITHUB_ENV"
-          echo "Project root: $root"
-          ls -la "$root"
+          unzip -q SubcakeReborn_AndroidStudio_Project_with_GitHub_Actions.zip -d source
 
-      - uses: actions/setup-java@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          gradle-version: "8.9"
 
-      - uses: gradle/actions/setup-gradle@v3
+      - name: Build APK
+        run: |
+          gradle -p source/SubcakeReborn --no-daemon :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          gradle-version: '8.2'
-
-      - name: Build debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SubtitleConv-apk
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          name: SubcakeReborn-APK
+          path: source/SubcakeReborn/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
